@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { checkRateLimit, checkRateLimits, consumeBudget, getClientIp, resetRateLimits } from '@/lib/rate-limit'
+import { checkRateLimits, consumeBudget, getClientIp, resetRateLimits } from '@/lib/rate-limit'
 
 const req = (headers: Record<string, string> = {}) => new Request('http://x/', { headers })
 
@@ -34,6 +34,9 @@ describe('getClientIp', () => {
     expect(getClientIp(req())).toBe('local-dev')
   })
 })
+
+const checkRateLimit = (key: string, limit: number, windowMs: number) =>
+  checkRateLimits([{ key, limit, windowMs }])
 
 describe('checkRateLimits', () => {
   beforeEach(() => {

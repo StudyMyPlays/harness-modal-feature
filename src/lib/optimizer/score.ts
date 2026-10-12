@@ -27,7 +27,7 @@ export type ScoreSummary = Pick<QualityScore, 'score'> & Partial<Pick<QualitySco
  * keeps scores comparable across requests that pick different generation
  * models — a Sonnet draft and a Haiku draft are judged the same way.
  */
-export const JUDGE_MODEL = 'anthropic/claude-haiku-4.5'
+const JUDGE_MODEL = 'anthropic/claude-haiku-4.5'
 const JUDGE_MAX_TOKENS = 400
 
 const JUDGE_SYSTEM = `You are a prompt-quality judge. Score the text inside <text_to_score> tags against four categories, 0-25 each. Judge general prompt-engineering quality — do not require any particular template or heading. A one-sentence raw request and a fully structured instruction block are scored on the same rubric.

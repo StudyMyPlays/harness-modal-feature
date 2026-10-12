@@ -51,10 +51,6 @@ export function checkRateLimits(rules: RateLimitRule[]): boolean {
   return true
 }
 
-export function checkRateLimit(key: string, limit: number, windowMs: number): boolean {
-  return checkRateLimits([{ key, limit, windowMs }])
-}
-
 /** Test hook: forget every bucket and the spend budget. */
 export function resetRateLimits(): void {
   buckets.clear()

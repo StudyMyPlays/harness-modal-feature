@@ -1,6 +1,6 @@
 import { jsonError } from '@/lib/api-response'
 
-export const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
+const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant'
@@ -49,7 +49,6 @@ export interface OpenRouterRequest {
   model: string
   messages: ChatMessage[]
   maxTokens: number
-  temperature?: number
   /** Set `{ type: 'json_object' }` when the caller is going to JSON.parse the reply. */
   responseFormat?: { type: 'json_object' }
   /**
@@ -101,7 +100,6 @@ export async function callOpenRouter(req: OpenRouterRequest): Promise<OpenRouter
       body: JSON.stringify({
         model: req.model,
         max_tokens: req.maxTokens,
-        ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
         ...(req.responseFormat ? { response_format: req.responseFormat } : {}),
         messages: req.messages,
       }),

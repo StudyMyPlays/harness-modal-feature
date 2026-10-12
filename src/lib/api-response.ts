@@ -10,12 +10,9 @@ export function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status })
 }
 
-/**
- * 429. `noun` names what was too frequent, so an upload route can say "Too many
- * uploads" without restating the rest of the sentence.
- */
-export function rateLimited(noun: 'requests' | 'uploads' = 'requests') {
-  return jsonError(`Too many ${noun}. Try again in a minute.`, 429)
+/** 429. */
+export function rateLimited() {
+  return jsonError('Too many requests. Try again in a minute.', 429)
 }
 
 /** 400, for a body that would not parse as JSON. */

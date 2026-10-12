@@ -184,7 +184,6 @@ export function PromptResult({
               'transition-all duration-300 hover:border-white/20',
             )}
           >
-            {}
             <div
               aria-hidden="true"
               className={cn('pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent to-transparent', accent.hairline)}
