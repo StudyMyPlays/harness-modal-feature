@@ -39,6 +39,15 @@
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+/* Minimum touch target on coarse pointers (phones, tablets). Used by Button;
+   it was referenced but never defined, so it did nothing. */
+@utility tap-target {
+  @media (pointer: coarse) {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+  }
+}
+
 body {
   background: var(--color-background);
   color: var(--color-foreground);

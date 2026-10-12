@@ -52,8 +52,12 @@ export interface OpenRouterRequest {
   temperature?: number
   /** Set `{ type: 'json_object' }` when the caller is going to JSON.parse the reply. */
   responseFormat?: { type: 'json_object' }
-  /** The caller's `origin` header, which OpenRouter attributes the request to. */
-  origin?: string | null
+  /**
+   * Hard ceiling for this call. A hung provider otherwise holds the request
+   * until the platform kills the whole function, and the browser then gets a
+   * gateway page instead of one of our errors.
+   */
+  timeoutMs: number
 }
 
 export type OpenRouterResult =
@@ -68,6 +72,8 @@ export type OpenRouterResult =
   | { ok: false; reason: 'upstream'; status: number }
   /** OpenRouter answered 200 with no content — a different failure, and not the provider's fault in the way a 5xx is. */
   | { ok: false; reason: 'empty' }
+  /** The call outlived `timeoutMs` and was aborted. */
+  | { ok: false; reason: 'timeout' }
 
 /**
  * One call to OpenRouter, with the response reduced to "text, or the status
@@ -76,25 +82,40 @@ export type OpenRouterResult =
  * body is exactly what must not reach a client.
  *
  * Throws only on transport failure, which the caller reports as a bad gateway.
+ * A timeout is not a throw: it comes back as `reason: 'timeout'`.
  */
 export async function callOpenRouter(req: OpenRouterRequest): Promise<OpenRouterResult> {
-  const res = await fetch(OPENROUTER_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${req.key}`,
-      'HTTP-Referer': req.origin || 'https://www.promptful.org',
-      'X-Title': 'Promptful',
-    },
-    body: JSON.stringify({
-      model: req.model,
-      max_tokens: req.maxTokens,
-      ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
-      ...(req.responseFormat ? { response_format: req.responseFormat } : {}),
-      messages: req.messages,
-    }),
-  })
-  const data = await res.json()
+  // Attribution is configured by whoever deploys the app. It used to echo the
+  // caller's own Origin header, which any client could set to anything.
+  const siteUrl = process.env.OPENROUTER_SITE_URL
+  let res: Response
+  try {
+    res = await fetch(OPENROUTER_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${req.key}`,
+        ...(siteUrl ? { 'HTTP-Referer': siteUrl } : {}),
+        'X-Title': 'Promptful',
+      },
+      body: JSON.stringify({
+        model: req.model,
+        max_tokens: req.maxTokens,
+        ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
+        ...(req.responseFormat ? { response_format: req.responseFormat } : {}),
+        messages: req.messages,
+      }),
+      signal: AbortSignal.timeout(Math.max(1, req.timeoutMs)),
+    })
+  } catch (err) {
+    if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
+      return { ok: false, reason: 'timeout' }
+    }
+    throw err
+  }
+  // A gateway in front of the provider can answer with an HTML error page;
+  // that is an upstream failure, not a reason to throw.
+  const data = await res.json().catch(() => null)
   if (!res.ok) {
     console.error('OpenRouter error:', res.status, data?.error?.message ?? data?.error)
     return { ok: false, reason: 'upstream', status: res.status }
@@ -121,6 +142,9 @@ export function openRouterErrorResponse(
 ) {
   if (result.reason === 'empty') {
     return jsonError('The model returned an empty response. Try again.', 502)
+  }
+  if (result.reason === 'timeout') {
+    return jsonError('The model provider took too long to answer. Try again.', 504)
   }
   return jsonError(upstreamMessage(result.status, feature), downstreamStatus(result.status))
 }

@@ -1,6 +1,6 @@
 'use client'
-import { useState } from 'react'
-import { AlertCircle, RotateCw, Check, Copy, ExternalLink } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { AlertCircle, AlertTriangle, RotateCw, Check, Copy, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -16,18 +16,14 @@ import { copyToClipboard } from '@/lib/clipboard'
 import { MODES, MODE_ACCENT, type OptimizerMode } from '@/lib/optimizer/optimizer'
 import { QualityScore } from '@/components/optimizer/quality-score'
 import { BeforeAfterDiff } from '@/components/optimizer/before-after-diff'
-import type { QualityScore as QualityScoreValue } from '@/lib/optimizer/score'
-import type { OptimizeResult } from '@/lib/optimizer/refine'
+import type { OptimizeResponse } from '@/lib/optimizer/refine'
 export type PromptStatus = 'idle' | 'loading' | 'success' | 'error'
 interface PromptResultProps {
   status: PromptStatus
   mode: OptimizerMode
   prompt?: string
-  result?: string
-  score?: QualityScoreValue | null
-  baseline?: QualityScoreValue | null
-  refinement?: OptimizeResult['refinement']
-  isPro?: boolean
+  /** The finished response, tied to `mode` by the caller. */
+  data?: OptimizeResponse
   error?: string
   onRetry?: () => void
   onReset?: () => void
@@ -130,18 +126,20 @@ export function PromptResult({
   status,
   mode,
   prompt,
-  result,
-  score,
-  baseline,
-  refinement,
-  isPro = false,
+  data,
   error,
   onRetry,
   onReset,
 }: PromptResultProps) {
   const [copied, setCopied] = useState(false)
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => {
+    if (copiedTimer.current) clearTimeout(copiedTimer.current)
+  }, [])
   const cfg = MODES[mode]
   const accent = MODE_ACCENT[mode]
+  const result = data?.text
+  const refinement = data?.refinement
   // Via the shared helper, which falls back to execCommand where the async
   // clipboard API is unavailable (insecure context, older Safari) and reports
   // failure instead of rejecting. The raw `.writeText().then()` this replaced
@@ -151,7 +149,8 @@ export function PromptResult({
     if (!result) return
     if (!(await copyToClipboard(result))) return
     setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    if (copiedTimer.current) clearTimeout(copiedTimer.current)
+    copiedTimer.current = setTimeout(() => setCopied(false), 2000)
   }
   return (
     <div
@@ -175,7 +174,7 @@ export function PromptResult({
           </div>
         </div>
       )}
-      {status === 'success' && result && (
+      {status === 'success' && data && result && (
         <div className="animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
           <div
             className={cn(
@@ -248,12 +247,29 @@ export function PromptResult({
                 Request: {prompt}
               </p>
             )}
-            {(score || baseline) && (
-              <QualityScore score={score ?? null} baseline={baseline ?? null} isPro={isPro} refinement={refinement} />
+            {data.truncated && (
+              <p
+                role="alert"
+                className="mb-3 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-300"
+              >
+                <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" />
+                This output hit the length limit and is cut off. Don’t paste it as is — shorten the request or try again.
+              </p>
+            )}
+            {(data.score || data.baseline) && (
+              <QualityScore
+                score={data.score}
+                baseline={data.baseline}
+                isPro={data.pro}
+                refinement={refinement}
+              />
+            )}
+            {refinement?.notice && (
+              <p className="mb-3 text-xs text-amber-400/90">{refinement.notice}</p>
             )}
             <OutputBlock text={result} mode={mode} />
-            {refinement && (
-              <BeforeAfterDiff before={refinement.draft0} after={result} isPro={isPro} />
+            {refinement?.applied && (
+              <BeforeAfterDiff before={refinement.draft0} after={result} isPro={data.pro} />
             )}
             <p className="mt-4 text-xs font-light leading-relaxed text-muted-foreground/80">
               {cfg.tip}
