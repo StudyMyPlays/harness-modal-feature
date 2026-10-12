@@ -1,14 +1,14 @@
 'use client'
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { QualityScore as QualityScoreValue, ScoreBreakdown } from '@/lib/optimizer/score'
-import type { OptimizeResult } from '@/lib/optimizer/refine'
+import type { ScoreSummary, ScoreBreakdown } from '@/lib/optimizer/score'
+import type { OptimizeResponse } from '@/lib/optimizer/refine'
 
 interface QualityScoreProps {
-  score: QualityScoreValue | null
-  baseline: QualityScoreValue | null
+  score: ScoreSummary | null
+  baseline: ScoreSummary | null
   isPro: boolean
-  refinement?: OptimizeResult['refinement']
+  refinement?: OptimizeResponse['refinement']
 }
 
 const CATEGORIES: { key: keyof ScoreBreakdown; label: string }[] = [
@@ -25,7 +25,7 @@ function scoreBand(n: number): { text: string; bg: string } {
   return { text: 'text-red-400', bg: 'bg-red-500/10' }
 }
 
-function ScorePill({ label, value }: { label: string; value: QualityScoreValue | null }) {
+function ScorePill({ label, value }: { label: string; value: ScoreSummary | null }) {
   if (!value) {
     return (
       <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
@@ -72,7 +72,7 @@ function BreakdownRow({ label, breakdown }: { label: string; breakdown: ScoreBre
 export function QualityScore({ score, baseline, isPro, refinement }: QualityScoreProps) {
   const delta = score && baseline ? score.score - baseline.score : null
   const progression = refinement
-    ? [refinement.draft0Score?.score, ...refinement.iterations.map((it) => it.score?.score)].filter(
+    ? [refinement.draft0Score?.score, ...(refinement.iterations ?? []).map((it) => it.score?.score)].filter(
         (v): v is number => typeof v === 'number',
       )
     : []
@@ -108,9 +108,9 @@ export function QualityScore({ score, baseline, isPro, refinement }: QualityScor
       )}
       {isPro && (
         <div className="mt-1 w-full space-y-2">
-          {baseline && <BreakdownRow label="Before" breakdown={baseline.breakdown} />}
-          {score && <BreakdownRow label="After" breakdown={score.breakdown} />}
-          {score && score.issues.length > 0 && (
+          {baseline?.breakdown && <BreakdownRow label="Before" breakdown={baseline.breakdown} />}
+          {score?.breakdown && <BreakdownRow label="After" breakdown={score.breakdown} />}
+          {score?.issues && score.issues.length > 0 && (
             <ul className="list-inside list-disc space-y-0.5 text-[11px] text-muted-foreground">
               {score.issues.map((issue, i) => (
                 <li key={i}>{issue}</li>
@@ -119,12 +119,9 @@ export function QualityScore({ score, baseline, isPro, refinement }: QualityScor
           )}
           {refinement && progression.length > 1 && (
             <p className="text-[11px] text-muted-foreground">
-              {refinement.iterations.length} refinement pass
-              {refinement.iterations.length === 1 ? '' : 'es'} · {progression.join(' → ')}
+              {refinement.passes} refinement pass
+              {refinement.passes === 1 ? '' : 'es'} · {progression.join(' → ')}
             </p>
-          )}
-          {refinement?.warning && (
-            <p className="text-[11px] text-amber-400/80">{refinement.warning}</p>
           )}
         </div>
       )}

@@ -454,19 +454,15 @@ export const MAX_CTX_CHARS = 4_000
 /**
  * Models a caller may request by slug, guarding the optional `model` field on
  * the optimize request. The default (OPENROUTER_MODEL, else Haiku) is what
- * actually runs today — nothing in the UI sends `model` — so this is the
- * allowlist that decides what *could* be asked for, not what is.
+ * actually runs — nothing in the UI sends `model`.
  *
- * Kept on the current Claude generation: Sonnet 4.5 and Opus 4.5 have been
- * superseded by Sonnet 5 and Opus 5, which is the generation the recommend
- * route already runs on. Haiku 4.5 stays — it is still the current Haiku, and
- * it is the right tier for a rewrite this size.
+ * Only the cheap tier is listed. This route is reachable without an account,
+ * so a premium slug here would let any anonymous caller pick the most
+ * expensive model for every call of a seven-call request. A deployment that
+ * wants a bigger model sets OPENROUTER_MODEL, which is the operator's choice
+ * and is not checked against this list.
  */
-export const ALLOWED_MODELS = new Set([
-  'anthropic/claude-haiku-4.5',
-  'anthropic/claude-sonnet-5',
-  'anthropic/claude-opus-5',
-])
+export const ALLOWED_MODELS = new Set(['anthropic/claude-haiku-4.5'])
 export function buildUserContent(raw: string, ctx?: string, ctxLabel?: string): string {
   return ctx?.trim()
     ? `RAW REQUEST:\n${raw}\n\n${(ctxLabel || 'EXTRA CONTEXT').toUpperCase()}:\n${ctx}`

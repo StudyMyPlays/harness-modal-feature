@@ -79,8 +79,9 @@ export function SearchInput({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const trimmed = value.trim()
-    if (!trimmed || isLoading) return
+    if (!trimmed || isLoading || trimmed.length > MAX_RAW_CHARS) return
     const trimmedCtx = ctx.trim()
+    if (supportsContext && trimmedCtx.length > MAX_CTX_CHARS) return
     onSubmit?.({
       raw: trimmed,
       mode,
@@ -88,7 +89,13 @@ export function SearchInput({
       ...(deepOptimize ? { deepOptimize: true } : {}),
     })
   }
-  const canSubmit = !!value.trim() && !isLoading
+  const rawLength = value.trim().length
+  const ctxLength = ctx.trim().length
+  // Over the ceiling is an error the user can see and fix. A `maxLength`
+  // attribute would instead cut a long paste off at the limit without a word.
+  const rawOver = rawLength > MAX_RAW_CHARS
+  const ctxOver = supportsContext && ctxLength > MAX_CTX_CHARS
+  const canSubmit = rawLength > 0 && !rawOver && !ctxOver && !isLoading
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-4xl mx-auto">
       <div className="relative">
@@ -117,9 +124,8 @@ export function SearchInput({
               // reader hears "describe the Gem you want to build" rather than
               // a generic field name.
               aria-label={cfg.placeholder}
-              // Mirrors the server's ceiling so the limit is felt while typing
-              // rather than reported as a rejection after submitting.
-              maxLength={MAX_RAW_CHARS}
+              aria-invalid={rawOver}
+              aria-describedby="optimizer-count"
               className="relative w-full min-h-[80px] resize-none bg-transparent text-foreground focus:outline-none text-base leading-relaxed"
               rows={3}
             />
@@ -162,10 +168,18 @@ export function SearchInput({
                 value={ctx}
                 onChange={(e) => setCtx(e.target.value)}
                 placeholder={cfg.contextPlaceholder}
-                maxLength={MAX_CTX_CHARS}
+                aria-invalid={ctxOver}
                 rows={2}
                 className="w-full resize-none rounded-lg border border-border/60 bg-background/40 p-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/70 focus:border-border focus:outline-none"
               />
+              {ctxLength > MAX_CTX_CHARS * 0.9 && (
+                <p
+                  className={`mt-1 text-right text-xs ${ctxOver ? 'text-destructive' : 'text-muted-foreground'}`}
+                >
+                  {ctxLength.toLocaleString()} / {MAX_CTX_CHARS.toLocaleString()}
+                  {ctxOver ? ' — too long' : ''}
+                </p>
+              )}
             </div>
           )}
           <div className="flex items-center justify-between gap-3">
@@ -264,7 +278,6 @@ export function SearchInput({
           </div>
         </div>
       </div>
-      {}
       <div className="mt-2 flex items-center px-1">
         <button
           type="button"
@@ -279,7 +292,6 @@ export function SearchInput({
           Examples
         </button>
       </div>
-      {}
       {showExamples && (
         <div className="mt-2 grid gap-2 animate-in fade-in-0 slide-in-from-top-1 duration-200 sm:grid-cols-2">
           {cfg.examples.map((ex) => (
@@ -297,13 +309,18 @@ export function SearchInput({
           ))}
         </div>
       )}
-      {}
-      <div className="mt-2 h-4 px-1 text-right text-xs text-muted-foreground transition-opacity duration-200">
-        <span
-          className={value.trim() && isFocused ? 'opacity-100' : 'opacity-0'}
-        >
-          {value.trim().length} characters
-        </span>
+      <div
+        id="optimizer-count"
+        className={`mt-2 h-4 px-1 text-right text-xs ${
+          rawOver ? 'text-destructive' : 'text-muted-foreground'
+        }`}
+      >
+        {rawLength > 0 && (
+          <span>
+            {rawLength.toLocaleString()} / {MAX_RAW_CHARS.toLocaleString()} characters
+            {rawOver ? ' — too long to optimize, shorten it' : ''}
+          </span>
+        )}
       </div>
     </form>
   )
