@@ -165,7 +165,6 @@ describe('runAgentLoop', () => {
   it('a non-LlmError is reported as a generic 502, not thrown', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const adapter: LlmAdapter = {
-      // eslint-disable-next-line require-yield
       async *stream() {
         throw new Error('bug')
       },
