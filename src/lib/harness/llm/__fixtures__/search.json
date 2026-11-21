@@ -1,0 +1,6 @@
+[
+  {"id":"c3","choices":[{"index":0,"delta":{"role":"assistant","content":"Cats purr.^1^"}}]},
+  {"id":"c3","choices":[],"venice_parameters":{"enable_web_search":"on","include_search_results_in_stream":true,"web_search_citations":[{"title":"Cats","url":"https://example.com/cats","content":"About cats"},{"title":"Dogs","url":"https://example.com/dogs"}]}},
+  {"id":"c3","choices":[{"index":0,"delta":{"content":""},"finish_reason":"stop"}]},
+  {"id":"c3","choices":[],"usage":{"prompt_tokens":300,"completion_tokens":5,"total_tokens":305}}
+]

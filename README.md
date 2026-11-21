@@ -1,105 +1,117 @@
-# Optimizer
+# Harness
 
-The prompt optimizer, extracted from `StudyMyPlays/be-promptful` so it can be
-developed on its own. Paste a rough request, pick the agent or workspace it is
-for, and get back a prompt written the way that product expects one.
+A private, ChatGPT-style chat harness for [Venice](https://venice.ai) models,
+built on Next.js. It runs locally with `npm run dev` and deploys to Vercel
+unchanged.
 
-Two families of output live behind one surface, which is why the modes are
-grouped in the picker:
+The defaults are Venice's uncensored **DeepSeek V4.1 Flash 1017**
+(`deepseek-v4-1-flash-1017-uncensored`) and **GLM 5.3 Flash**
+(`glm-5-3-flash-uncensored`). Any Venice text model can be added to the
+allow-list.
 
-- **Task modes** (Claude Co-Work, Perplexity Comet) return a single clean prompt
-  to paste into a chat.
-- **Workspace modes** (Claude Projects, Gemini Gems, ChatGPT Projects) return the
-  standing instructions that sit behind a saved workspace, and take an optional
-  description of the knowledge base alongside the request.
+What you get:
 
-## Running it
+- **Chats:** a sidebar of chats (search, rename, delete), streamed replies,
+  Markdown with highlighted code and copy buttons. You can stop a reply,
+  regenerate it, or edit your last message and resend it.
+- **Reasoning:** shown in a collapsible "Thinking" block, with a
+  reasoning-effort control where the model offers one.
+- **Web search** (off, auto or on), using Venice's built-in search. Sources
+  appear as numbered links.
+- **Attachments:** images for vision models, and PDF, Office, text and code
+  files, which Venice reads.
+- **Auto titles, compaction and token/cost meter:** chats get a title after
+  the first reply. Long chats have their older turns summarised for the
+  model. Each reply and each chat shows its tokens and cost.
+- **Tools** from remote MCP servers you configure.
+- **A passcode gate** for public deployments.
+
+Chats are stored in your browser (IndexedDB). Nothing about a conversation is
+kept on the server.
+
+## Run it locally
 
 ```bash
 npm install
-cp .env.example .env.local   # then set OPENROUTER_API_KEY
-npm run dev
+cp .env.example .env.local   # then set VENICE_API_KEY
+npm run dev                  # http://localhost:3000
 ```
 
-Without `OPENROUTER_API_KEY` the app renders and the route answers 503, so the
-UI reports that optimization is not configured rather than failing at the model
-provider.
+No passcode is needed locally. Every setting is explained in `.env.example`.
 
-Checks (also run in CI, `.github/workflows/ci.yml`):
+Checks, which also run in CI (`.github/workflows/ci.yml`):
 
 ```bash
 npm run lint
 npm run typecheck   # runs `next typegen` first; bare `tsc` cannot see Next's route types
-npm test            # vitest: route, rate limiter, pipeline, components
+npm test            # vitest
+npm run build
 ```
 
-## What is here
+## Deploy to Vercel
 
-| Path | What it is |
-| --- | --- |
-| `src/lib/optimizer/optimizer.ts` | The whole feature definition: mode configs, system prompts, per-mode accents, input ceilings, the allow-list of models. |
-| `src/lib/optimizer/score.ts` | The quality-score judge: a mode-agnostic 0-100 rubric (specificity/completeness/clarity/structure), run against both the raw input and every draft. The headline score is the sum of the four categories, and the judged text is passed as delimited data. Best-effort — returns `null` rather than throwing. |
-| `src/lib/optimizer/refine.ts` | `runOptimize()`, the orchestrator: the generate call, the always-on baseline/draft scoring, and — when `deepOptimize` is requested — up to two critique-and-revise passes. It keeps the best-scoring draft (not the last), discards a revision that was cut off, and works inside a wall-clock deadline. `toResponse()` decides what the client is allowed to see. |
-| `src/app/api/optimize/route.ts` | The server route. Checks origin, content type, size and every field's runtime type, then rate limits, spends the daily budget, calls `runOptimize()`. |
-| `src/components/optimizer/` | `prompt-optimizer` (request state; each result is kept with the mode that made it), `search-input` (the composer, mode picker, Deep Optimize toggle, visible length counters), `prompt-result` (structure-aware rendering, truncation and refinement notices), `quality-score` (score/delta pills, breakdown when entitled), `before-after-diff` (word diff when entitled). |
-| `src/lib/openrouter.ts` | One call to OpenRouter, with a per-call timeout and the upstream response reduced to "text, or the status that went wrong". |
-| `src/lib/rate-limit.ts`, `src/lib/api-response.ts` | In-process token buckets (checked together, atomically), the daily call budget, and the shared `{ error }` failure shapes. |
-| `src/components/ui/` | The five shadcn components the optimizer uses: button, select, skeleton, spinner, empty. |
+1. Import the repository in Vercel. It is detected as Next.js, and no
+   `vercel.json` is needed.
+2. In **Project Settings → Environment Variables**, set:
+   - `VENICE_API_KEY`
+   - `HARNESS_PASSCODE`
+   - `HARNESS_SESSION_SECRET` (a long random string, for example from
+     `openssl rand -base64 32`)
 
-## Differences from the app it came from
+   Production refuses to serve the API without a passcode, unless you set
+   `HARNESS_PUBLIC=1` on purpose.
+3. Deploy. The chat route asks for `maxDuration = 300` seconds. If your plan
+   allows less, lower it in `src/app/api/chat/route.ts`.
 
-**There is no auth gate.** In `be-promptful` this route required a signed-in
-user — the OpenRouter key is billable, and the session id was both the
-authorization and the rate-limit key. This repo has no accounts, so the caller
-is identified by IP and the limit stays at 20 per minute.
+Set a spending limit on the Venice key too. The rate limits and daily budget
+below protect against accidents, but they are not a quota.
 
-That is weaker on purpose. An IP is shared by everyone behind a NAT and rotated
-freely by anyone who wants more than 20 calls a minute, so **before deploying
-this anywhere the public can reach it, put an account check back in front of the
-route** — `unauthorized()` is still in `src/lib/api-response.ts` for that, and
-the rate-limit key should go back to the user id.
+## How it is built
 
-What stands in for it until then:
+The structure follows [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness),
+rebuilt for stateless Vercel functions:
 
-- The IP is only read from a header that can be trusted: `x-vercel-forwarded-for`
-  on Vercel, `x-forwarded-for` with `TRUST_PROXY_HEADERS=1` behind a proxy that
-  overwrites it. With neither, in production, the route refuses (503) rather
-  than putting every caller in one shared bucket.
-- A process-wide daily call budget (`OPTIMIZER_DAILY_CALL_BUDGET`) caps total
-  spend however many callers show up.
-- The client cannot choose a model beyond the cheap tier in `ALLOWED_MODELS`.
-- Cross-site browser requests are refused.
+| DeepSeek Harness | Here | What it does |
+| --- | --- | --- |
+| `llm`, `llm-deepseek` | `src/lib/harness/llm/` | The model-adapter seam and the Venice adapter: SSE parsing, tool-call accumulation, reasoning, citations, balance header, and error mapping that never forwards Venice's text |
+| `llm-retry` | `llm/retry.ts` | Retries 429, 5xx and network errors, only before anything has streamed |
+| `core/agent-loop` | `agent-loop.ts` | A turn is up to 8 steps; a step is one model call plus its tool calls. Usage is summed and costed |
+| `core/tools`, `tool-executor-native` | `tools/registry.ts` | Tool registry. The executor never throws: it applies timeouts (20 s), size caps (16k characters) and bad-argument handling |
+| `mcp-client` | `tools/mcp.ts` | Tools from remote Streamable-HTTP MCP servers (`MCP_SERVERS`), cached for 5 minutes |
+| `core/session`, `session-format` | `session/format.ts` | The per-chat event log |
+| `session-projection` | `session/projection.ts` | Event log → model messages. It applies compaction, never sends reasoning, and evicts old attachments to fit the 4 MB request budget |
+| `session-persistence` | `session/store.ts`, `session/indexeddb.ts` | The `SessionStore` interface, implemented on IndexedDB. A database later implements the same interface |
+| `compaction-basic` | `session/compaction.ts`, `/api/compact` | Summarises older turns past `COMPACT_AT_TOKENS` |
+| `session-title-llm` | `/api/title` | A title of up to 6 words after the first reply |
+| `token-meter` | `catalog.ts` | Prices and capabilities from Venice's `/models` (cached for 10 minutes), and cost per reply |
+| `system-prompt`, `time-context` | `prompts.ts` | Your system prompt plus a short harness preamble (date, search, tools) |
 
-Set a spend limit on the OpenRouter key too; none of the above is a quota.
+The browser (`client/controller.ts`) owns the session log. Each turn, it sends
+the projected history to `/api/chat`, which runs the agent loop against Venice
+and streams typed events back (`protocol.ts`). The browser persists those
+events as they arrive.
 
-**The rate limit is per-process.** `src/lib/rate-limit.ts` holds its buckets in
-memory, so on a platform that runs several instances each one counts
-separately, and a redeploy resets the count. It is a brake on accidental
-hammering, not a quota.
+Every API route goes through `guard.ts`, which checks, in order:
 
-**Deep Optimize has its own, tighter limit.** Every request scores the raw
-input and the draft (2 extra calls); opting into Deep Optimize adds a
-two-pass critique-and-revise loop (up to 4 more), so a `deepOptimize: true`
-request can cost up to 7 calls instead of 1. Those requests are capped at 5
-per minute per IP, on top of — not instead of — the base 20/minute limit; a
-request refused by the deep limit does not use a base slot.
+1. the request isn't cross-site
+2. the passcode
+3. the Venice key is configured
+4. the caller can be identified
+5. the rate limit
+6. the daily budget
 
-**"Pro" detail is decided by the server.** The category breakdown, the issues
-list and the first draft are left out of the response unless `OPTIMIZER_PRO`
-allows them (see `.env.example`); the UI renders from what it was sent, so
-there is nothing to unlock client-side. There is still no billing: this is one
-switch per deployment until accounts exist.
-
-**Entrance animations work.** The components use `animate-in` /
-`slide-in-from-*`; the original had `tw-animate-css` installed but never
-imported, so those classes were inert there. `src/app/globals.css` imports it.
+The UI (`src/components/chat/`) uses be-promptful's design tokens: borderless
+`surface-card`s, the mint accent, and its type scale (`src/app/globals.css`).
 
 ## Known gaps
 
-- `npm audit` still reports advisories in the **dev-only** lint toolchain
-  (`eslint-config-next` → `fast-glob`/`micromatch`/`braces`). The only fix npm
-  offers is downgrading to `eslint-config-next@14`; CI audits production
-  dependencies only.
-- No CSP `script-src`: Next's inline hydration scripts would need a per-request
-  nonce. The headers in `next.config.ts` cover framing, sniffing, referrer and
+- **The rate limits and daily budget are per process.** They are kept in
+  memory, so several instances count separately and a redeploy resets them.
+- **There are no accounts and no server-side history yet.** Chats live in the
+  browser they were made in. Clearing site data deletes them.
+- **No CSP `script-src`.** Next's inline hydration scripts would need a nonce
+  per request. `next.config.ts` covers framing, sniffing, referrer and
   form/base targets.
+- **Dev-only `npm audit` advisories.** `npm audit` reports advisories in the
+  lint toolchain (`eslint-config-next`). CI audits production dependencies
+  only.
