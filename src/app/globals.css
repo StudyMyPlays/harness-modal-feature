@@ -267,3 +267,41 @@ body {
     opacity: 1;
   }
 }
+
+/* ── Model output ────────────────────────────────────────────────────────── */
+.markdown > :first-child { margin-top: 0; }
+.markdown > :last-child { margin-bottom: 0; }
+.markdown p { margin: 0.75rem 0; }
+.markdown h1, .markdown h2, .markdown h3 {
+  margin: 1.25rem 0 0.5rem;
+  font-weight: 600;
+  letter-spacing: -0.4px;
+}
+.markdown h1 { font-size: 1.35rem; }
+.markdown h2 { font-size: 1.2rem; }
+.markdown h3 { font-size: 1.05rem; }
+.markdown ul, .markdown ol { margin: 0.75rem 0; padding-left: 1.4rem; }
+.markdown ul { list-style: disc; }
+.markdown ol { list-style: decimal; }
+.markdown li { margin: 0.25rem 0; }
+.markdown blockquote {
+  margin: 0.75rem 0;
+  padding-left: 0.9rem;
+  border-left: 2px solid var(--track);
+  color: var(--text-2);
+}
+.markdown hr { margin: 1.25rem 0; border-color: var(--track); }
+.markdown th, .markdown td { border: 1px solid var(--track); padding: 0.4rem 0.6rem; text-align: left; }
+.markdown th { background: var(--card-inner); font-weight: 600; }
+
+/* highlight.js tokens, tuned to the dark palette with mint as the accent. */
+.hljs { color: var(--text-1); background: transparent; }
+.hljs-comment, .hljs-quote { color: rgb(255 255 255 / 0.4); font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-literal, .hljs-built_in { color: hsl(151 80% 66%); }
+.hljs-string, .hljs-attr, .hljs-template-tag, .hljs-addition { color: hsl(40 90% 72%); }
+.hljs-number, .hljs-symbol, .hljs-bullet { color: hsl(20 90% 70%); }
+.hljs-title, .hljs-section, .hljs-name, .hljs-function .hljs-title { color: hsl(205 90% 72%); }
+.hljs-type, .hljs-class .hljs-title, .hljs-variable, .hljs-template-variable { color: hsl(275 80% 78%); }
+.hljs-meta, .hljs-deletion { color: hsl(0 80% 72%); }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 600; }
