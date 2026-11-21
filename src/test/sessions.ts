@@ -13,7 +13,7 @@ export function makeEvents(chatId = 'chat1') {
   let n = 0
   const base = () => {
     n += 1
-    return { id: `e${n}`, chatId, ts: 1000 + n, v: 1 as const }
+    return { id: `${chatId}-e${n}`, chatId, ts: 1000 + n, v: 1 as const }
   }
   return {
     user(text: string, attachments: AttachmentRef[] = []): UserMessageEvent {
