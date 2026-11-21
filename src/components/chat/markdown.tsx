@@ -40,6 +40,9 @@ function CodeBlock({ children }: { children?: ReactNode }) {
 
 const components: Components = {
   pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
+  // Never load images from model output: a prompt-injected image URL could
+  // carry the conversation to a third party just by being rendered.
+  img: ({ alt }) => <span className="text-text-3">[image{alt ? `: ${alt}` : ''}]</span>,
   a: ({ href, title, children }) => {
     const link = (
       <a

@@ -1,4 +1,4 @@
-import { MAX_FILE_BYTES } from '../session/format'
+import { MAX_FILE_BYTES, MAX_FILE_LABEL } from '../session/format'
 
 /** Images Venice vision models accept. SVG is left out: it is markup, not pixels. */
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif'])
@@ -14,7 +14,7 @@ const FILE_EXTENSIONS = new Set([
 export type FileCheck = { ok: true; kind: 'image' | 'file' } | { ok: false; error: string }
 
 export function classifyFile(file: { name: string; type: string; size: number }, supportsVision: boolean): FileCheck {
-  if (file.size > MAX_FILE_BYTES) return { ok: false, error: `"${file.name}" is over 4 MB.` }
+  if (file.size > MAX_FILE_BYTES) return { ok: false, error: `"${file.name}" is over ${MAX_FILE_LABEL}.` }
   if (IMAGE_TYPES.has(file.type)) {
     return supportsVision ? { ok: true, kind: 'image' } : { ok: false, error: 'This model can’t read images.' }
   }

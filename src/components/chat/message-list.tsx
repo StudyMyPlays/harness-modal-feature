@@ -56,7 +56,7 @@ export function MessageList({
               <AssistantMessage
                 key={e.id}
                 event={e}
-                onRetry={onRetry}
+                onRetry={!streaming && e.id === lastAssistantId ? onRetry : undefined}
                 onRegenerate={!streaming && e.id === lastAssistantId ? onRetry : undefined}
               />
             )

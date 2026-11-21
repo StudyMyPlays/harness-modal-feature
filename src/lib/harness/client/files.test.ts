@@ -23,12 +23,12 @@ describe('classifyFile', () => {
     expect(classifyFile(f('pic.svg', 'image/svg+xml'), true).ok).toBe(false)
   })
 
-  it('refuses files over 4 MB', () => {
-    expect(classifyFile(f('big.pdf', 'application/pdf', 4 * 1024 * 1024 + 1), true)).toEqual({
+  it('refuses files over 2.9 MB (base64 must fit the 4 MB request budget)', () => {
+    expect(classifyFile(f('big.pdf', 'application/pdf', 2_900_001), true)).toEqual({
       ok: false,
-      error: '"big.pdf" is over 4 MB.',
+      error: '"big.pdf" is over 2.9 MB.',
     })
-    expect(classifyFile(f('ok.pdf', 'application/pdf', 4 * 1024 * 1024), true).ok).toBe(true)
+    expect(classifyFile(f('ok.pdf', 'application/pdf', 2_900_000), true).ok).toBe(true)
   })
 
   it('refuses images when the model has no vision', () => {

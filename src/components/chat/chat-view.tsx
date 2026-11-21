@@ -101,7 +101,7 @@ export function ChatView({ onOpenMenu, onOpenSettings }: { onOpenMenu: () => voi
           supportsVision={model?.supportsVision ?? true}
           webSearch={chat?.settings.webSearch ?? 'off'}
           onWebSearchChange={(mode) => void patch({ webSearch: mode })}
-          onSend={(text, files) => void controller.send(text, files)}
+          onSend={(text, files) => controller.send(text, files)}
           onStop={() => controller.stop()}
         />
         <p className="text-text-3 mt-2 text-center text-[11px]">Uncensored models can be wrong. Check what matters.</p>

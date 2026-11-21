@@ -136,6 +136,14 @@ describe('chat controller', () => {
     expect((await store.listEvents(state.activeChatId!)).at(-1)).toMatchObject({ status: 'complete' })
   })
 
+  it('send resolves true when the message was accepted', async () => {
+    const { fetchImpl } = fakeFetch({ '/api/chat': () => sse(reply('ok')) })
+    const c = make(fetchImpl)
+    await c.init()
+    expect(await c.send('hi', [])).toBe(true)
+    expect(await c.send('   ', [])).toBe(false)
+  })
+
   it('sends the system prompt, effort and temperature from chat settings', async () => {
     const { fetchImpl, calls } = fakeFetch({ '/api/chat': () => sse(reply('ok')) })
     const c = make(fetchImpl)
@@ -309,8 +317,8 @@ describe('chat controller', () => {
     const c = make(fetchImpl)
     await c.init()
     const id = await c.newChat()
-    await c.send('see', [file('huge.pdf', 'application/pdf', 4 * 1024 * 1024 + 1)])
-    expect(c.getState().notice).toBe('"huge.pdf" is over 4 MB.')
+    expect(await c.send('see', [file('huge.pdf', 'application/pdf', 2_900_001)])).toBe(false)
+    expect(c.getState().notice).toBe('"huge.pdf" is over 2.9 MB.')
     expect(await store.listEvents(id)).toEqual([])
     expect(calls.some((x) => x.url === '/api/chat')).toBe(false)
   })
@@ -342,6 +350,32 @@ describe('chat controller', () => {
     expect(await store.listEvents(id)).toEqual([])
     expect((await store.getAttachments(id)).size).toBe(0)
     expect(calls.some((x) => x.url === '/api/chat')).toBe(false)
+  })
+
+  it('a message over budget on its own is refused without a compaction call', async () => {
+    const { fetchImpl, calls } = fakeFetch({
+      '/api/chat': () => sse(reply('a reply long enough to count')),
+      '/api/compact': () => Response.json({ summary: 'should not be asked for' }),
+    })
+    const big = 'A'.repeat(1_500_000)
+    let docs = false
+    const c = make(fetchImpl, {
+      readFile: async (f) => (docs ? `data:application/pdf;base64,${big}` : `data:${f.type};base64,QUJD`),
+    })
+    await c.init()
+    for (let i = 0; i < 4; i++) await c.send(`turn ${i}`, [])
+    docs = true
+    const accepted = await c.send('three docs', [
+      file('a.pdf', 'application/pdf'),
+      file('b.pdf', 'application/pdf'),
+      file('c.pdf', 'application/pdf'),
+    ])
+    expect(accepted).toBe(false)
+    expect(calls.some((x) => x.url === '/api/compact')).toBe(false)
+    expect(c.getState().events.some((e) => e.type === 'compaction')).toBe(false)
+    expect(c.getState().notice).toBe(
+      'This message is over the 4 MB limit per request. Remove an attachment or shorten it.',
+    )
   })
 
   it('sends attachments as content parts', async () => {
@@ -492,6 +526,31 @@ describe('chat controller', () => {
     expect(c.getState().chats.map((x) => x.id)).toEqual([a])
     await c.deleteChat(a)
     expect(c.getState().activeChatId).toBeNull()
+  })
+
+  it('deleting a chat while it streams removes it for good', async () => {
+    const { fetchImpl } = fakeFetch({
+      '/api/chat': (_b, init) =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(ctrl) {
+              ctrl.enqueue(encodeEvent({ type: 'step-start', step: 1 }))
+              ctrl.enqueue(encodeEvent({ type: 'text-delta', text: 'partial' }))
+              init.signal?.addEventListener('abort', () => ctrl.error(new DOMException('aborted', 'AbortError')))
+            },
+          }),
+        ),
+    })
+    const c = make(fetchImpl)
+    await c.init()
+    const sending = c.send('hi', [])
+    await vi.waitFor(() => expect(lastAssistant(c)?.steps[0]?.text).toBe('partial'))
+    const id = c.getState().activeChatId!
+    await c.deleteChat(id)
+    await sending
+    expect(await store.getChat(id)).toBeNull()
+    expect(await store.listEvents(id)).toEqual([])
+    expect(c.getState().chats).toEqual([])
   })
 
   it('renameChat marks the title as the user’s', async () => {

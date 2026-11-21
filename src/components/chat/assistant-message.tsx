@@ -55,7 +55,8 @@ export function AssistantMessage({
   onRegenerate,
 }: {
   event: AssistantMessageEvent
-  onRetry: () => void
+  /** Present only on the latest reply: retry regenerates the latest reply. */
+  onRetry?: () => void
   /** Present only on the last reply, when it can be regenerated. */
   onRegenerate?: () => void
 }) {
@@ -97,10 +98,12 @@ export function AssistantMessage({
         <div className="border-destructive/30 bg-destructive/10 mt-2 flex items-start gap-2 rounded-[var(--radius-row)] border px-3 py-2 text-[13.5px]">
           <AlertTriangle className="text-destructive mt-0.5 size-4 shrink-0" />
           <p className="text-text-1 flex-1">{event.error.message}</p>
-          <Button size="sm" variant="ghost" onClick={onRetry} className="h-7 shrink-0">
-            <RotateCcw className="size-3.5" />
-            Retry
-          </Button>
+          {onRetry && (
+            <Button size="sm" variant="ghost" onClick={onRetry} className="h-7 shrink-0">
+              <RotateCcw className="size-3.5" />
+              Retry
+            </Button>
+          )}
         </div>
       )}
 

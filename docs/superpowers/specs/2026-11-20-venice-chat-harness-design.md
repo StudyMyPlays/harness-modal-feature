@@ -266,7 +266,7 @@ Venice's text never reaches the browser. The client aborts with
 - Images (png, jpg, webp, gif) are sent as `image_url` data URLs, only to
   models whose `/models` entry has `supportsVision`. Documents in Venice's
   supported file types are sent as `file` blocks.
-- Limits per file: images 4 MB, documents 4 MB.
+- Limits per file: 2.9 MB raw, for images and documents. Files travel base64-encoded (4 bytes per 3), so a larger file could never fit the 4 MB request budget. (Changed from 4 MB after review.)
 - **Per-request budget: 4 MB.** This comes from Vercel's 4.5 MB body limit
   less JSON overhead. When history plus attachments would exceed it, the
   oldest attachments in the projection are replaced with

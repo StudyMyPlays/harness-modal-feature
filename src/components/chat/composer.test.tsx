@@ -61,6 +61,15 @@ describe('Composer', () => {
     expect(screen.queryByText('notes.pdf')).toBeNull()
   })
 
+  it('keeps the text and attachments when the send is refused', async () => {
+    const { input } = setup({ onSend: vi.fn(async () => false) })
+    attach('notes.pdf', 'application/pdf', 100)
+    fireEvent.change(input, { target: { value: 'please keep me' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+    await vi.waitFor(() => expect(input.value).toBe('please keep me'))
+    expect(screen.getByText('notes.pdf')).toBeTruthy()
+  })
+
   it('removes an attachment chip', () => {
     setup()
     attach('notes.pdf', 'application/pdf', 100)
@@ -70,8 +79,8 @@ describe('Composer', () => {
 
   it('oversize file shows inline error and is not attached', () => {
     setup()
-    attach('huge.pdf', 'application/pdf', 4 * 1024 * 1024 + 1)
-    expect(screen.getByRole('alert').textContent).toBe('"huge.pdf" is over 4 MB.')
+    attach('huge.pdf', 'application/pdf', 2_900_001)
+    expect(screen.getByRole('alert').textContent).toBe('"huge.pdf" is over 2.9 MB.')
     expect(screen.queryByRole('button', { name: 'Remove huge.pdf' })).toBeNull()
   })
 

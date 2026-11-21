@@ -31,6 +31,7 @@ export interface McpToolInfo {
 export interface McpConnection {
   listTools(): Promise<McpToolInfo[]>
   callTool(name: string, args: unknown, signal: AbortSignal): Promise<string>
+  close?(): Promise<void>
 }
 
 const NAME_RE = /^[a-z0-9_-]{1,32}$/i
@@ -105,6 +106,9 @@ async function connectHttp(server: McpServerConfig): Promise<McpConnection> {
         inputSchema: t.inputSchema as Record<string, unknown>,
       }))
     },
+    async close() {
+      await client.close().catch(() => {})
+    },
     async callTool(name, args, signal) {
       const result = await client.callTool(
         { name, arguments: (args ?? {}) as Record<string, unknown> },
@@ -138,23 +142,55 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   ]).finally(() => clearTimeout(timer))
 }
 
+const cacheKey = (server: McpServerConfig) => `${server.name}\n${server.url}`
+
+function evict(key: string) {
+  const hit = cache.get(key)
+  cache.delete(key)
+  void hit?.conn.close?.()
+}
+
 async function loadServer(
   server: McpServerConfig,
   connect: (s: McpServerConfig) => Promise<McpConnection>,
   now: number,
 ): Promise<CacheEntry> {
-  const key = `${server.name}\n${server.url}`
+  const key = cacheKey(server)
   const hit = cache.get(key)
   if (hit && now - hit.at < CACHE_TTL_MS) return hit
-  const entry = await withTimeout(
-    (async () => {
-      const conn = hit?.conn ?? (await connect(server))
-      return { at: now, conn, tools: await conn.listTools() }
-    })(),
-    CONNECT_TIMEOUT_MS,
-  )
-  cache.set(key, entry)
-  return entry
+  // Stale: reconnect rather than reuse a session the server may have dropped.
+  if (hit) evict(key)
+  let conn: McpConnection | undefined
+  try {
+    const entry = await withTimeout(
+      (async () => {
+        conn = await connect(server)
+        return { at: now, conn, tools: await conn.listTools() }
+      })(),
+      CONNECT_TIMEOUT_MS,
+    )
+    cache.set(key, entry)
+    return entry
+  } catch (err) {
+    void (conn as McpConnection | undefined)?.close?.()
+    throw err
+  }
+}
+
+/** FNV-1a, for short stable suffixes. */
+function shortHash(s: string): string {
+  let h = 0x811c9dc5
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i)
+    h = Math.imul(h, 0x01000193)
+  }
+  return (h >>> 0).toString(16).padStart(8, '0')
+}
+
+/** A tool name every provider accepts: [A-Za-z0-9_-], at most 64 characters. */
+function exposedName(server: string, tool: string): string {
+  const name = `mcp__${server}__${tool.replace(/[^A-Za-z0-9_-]/g, '_')}`
+  return name.length <= MAX_TOOL_NAME ? name : `${name.slice(0, MAX_TOOL_NAME - 9)}_${shortHash(name)}`
 }
 
 /**
@@ -173,6 +209,7 @@ export async function loadMcpTools(
 
   const tools: HarnessTool[] = []
   const status: McpServerStatus[] = []
+  const used = new Set<string>()
   results.forEach((r, i) => {
     const server = active[i]
     if (r.status === 'rejected') {
@@ -182,17 +219,30 @@ export async function loadMcpTools(
       return
     }
     const { conn, tools: list } = r.value
+    const key = cacheKey(server)
+    let added = 0
     for (const t of list) {
+      const name = exposedName(server.name, t.name)
+      if (used.has(name)) {
+        console.error(`MCP server "${server.name}": skipping duplicate tool name "${t.name}".`)
+        continue
+      }
+      used.add(name)
+      added += 1
       tools.push({
-        spec: {
-          name: `mcp__${server.name}__${t.name}`.slice(0, MAX_TOOL_NAME),
-          description: t.description ?? '',
-          parameters: t.inputSchema,
+        spec: { name, description: t.description ?? '', parameters: t.inputSchema },
+        execute: async (args, ctx) => {
+          try {
+            return await conn.callTool(t.name, args, ctx.signal)
+          } catch (err) {
+            // A dead session or transport: reconnect on the next turn.
+            if (!ctx.signal.aborted) evict(key)
+            throw err
+          }
         },
-        execute: (args, ctx) => conn.callTool(t.name, args, ctx.signal),
       })
     }
-    status.push({ name: server.name, ok: true, toolCount: list.length })
+    status.push({ name: server.name, ok: true, toolCount: added })
   })
   return { tools, status }
 }

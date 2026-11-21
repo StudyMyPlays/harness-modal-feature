@@ -10,7 +10,8 @@ const NEXT_SEARCH: Record<WebSearchMode, WebSearchMode> = { off: 'auto', auto: '
 const SEARCH_LABEL: Record<WebSearchMode, string> = { off: 'Search off', auto: 'Search auto', on: 'Search on' }
 
 export interface ComposerProps {
-  onSend: (text: string, files: File[]) => void
+  /** May resolve false when the message was refused; the composer then restores what was typed. */
+  onSend: (text: string, files: File[]) => void | boolean | Promise<boolean>
   onStop: () => void
   streaming: boolean
   supportsVision: boolean
@@ -60,10 +61,17 @@ export function Composer({
 
   function send() {
     if (!canSend) return
-    onSend(text.trim(), files)
+    const sentText = text
+    const sentFiles = files
     setText('')
     setFiles([])
     setError(null)
+    // Clear at once (the reply can take a while), but give the message back if it was refused.
+    void Promise.resolve(onSend(sentText.trim(), sentFiles)).then((accepted) => {
+      if (accepted !== false) return
+      setText((t) => (t ? t : sentText))
+      setFiles((f) => (f.length ? f : sentFiles))
+    })
   }
 
   function onPaste(e: ClipboardEvent<HTMLTextAreaElement>) {

@@ -73,4 +73,9 @@ export type SessionEvent = UserMessageEvent | AssistantMessageEvent | Compaction
 
 /** Per request, history plus attachments: Vercel's 4.5 MB body limit less JSON overhead. */
 export const ATTACHMENT_BUDGET_BYTES = 4_000_000
-export const MAX_FILE_BYTES = 4 * 1024 * 1024
+/**
+ * Per file, raw bytes. Files travel base64-encoded (4 bytes per 3), so a file
+ * must be well under 3/4 of the request budget to fit with its message.
+ */
+export const MAX_FILE_BYTES = 2_900_000
+export const MAX_FILE_LABEL = '2.9 MB'

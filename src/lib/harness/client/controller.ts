@@ -49,7 +49,8 @@ export interface ChatController {
   renameChat(id: string, title: string): Promise<void>
   deleteChat(id: string): Promise<void>
   updateSettings(id: string, patch: Partial<ChatSettings>): Promise<void>
-  send(text: string, files: File[]): Promise<void>
+  /** Resolves false when the message was refused (nothing written), true once it was accepted and its turn ran. */
+  send(text: string, files: File[]): Promise<boolean>
   stop(): void
   regenerate(): Promise<void>
   editLastUserMessage(text: string): Promise<void>
@@ -216,6 +217,7 @@ export function createChatController(deps: ControllerDeps): ChatController {
   }
   const listeners = new Set<() => void>()
   let abort: AbortController | null = null
+  let turn: Promise<unknown> | null = null
   let lastTs = 0
 
   function set(patch: Partial<ControllerState>) {
@@ -302,6 +304,19 @@ export function createChatController(deps: ControllerDeps): ChatController {
         ? new Map([...state.attachments, ...pending.attachments.map((a) => [a.id, a] as const)])
         : state.attachments,
     })
+    // A message that is over budget on its own can't be helped by evicting or
+    // summarising older history: refuse it before spending a compaction call.
+    if (pending) {
+      const alone = projectForModel(
+        [pending.event],
+        new Map(pending.attachments.map((a) => [a.id, a] as const)),
+        { systemPrompt: chat.settings.systemPrompt, supportsVision: modelInfo(chat.settings.model)?.supportsVision ?? true },
+      )
+      if (alone.overBudget) {
+        set({ notice: OVER_BUDGET })
+        return null
+      }
+    }
     let { events, attachments } = withPending()
     let projection = project(chat, events, attachments)
     if (shouldCompact(projection, state.compactAtTokens)) {
@@ -393,9 +408,11 @@ export function createChatController(deps: ControllerDeps): ChatController {
     } finally {
       abort = null
     }
+    // The chat may have been deleted while it streamed: don't bring it back.
+    const latest = await store.getChat(chatId)
+    if (!latest) return
     await store.putEvent(draft)
 
-    const latest = (await store.getChat(chatId)) ?? chat
     const updated: Chat = {
       ...latest,
       updatedAt: now(),
@@ -437,12 +454,15 @@ export function createChatController(deps: ControllerDeps): ChatController {
   }
 
   /** Run a turn on the current log, holding the streaming flag throughout. */
-  async function withTurn(fn: () => Promise<void>) {
-    if (state.streaming) return
+  async function withTurn<T>(fn: () => Promise<T>, busy: T): Promise<T> {
+    if (state.streaming) return busy
     set({ streaming: true })
+    const run = fn()
+    turn = run.catch(() => {})
     try {
-      await fn()
+      return await run
     } finally {
+      turn = null
       set({ streaming: false })
     }
   }
@@ -524,7 +544,11 @@ export function createChatController(deps: ControllerDeps): ChatController {
     },
 
     async deleteChat(id) {
-      if (state.streaming && state.activeChatId === id) controller.stop()
+      if (state.streaming && state.activeChatId === id) {
+        controller.stop()
+        // Let the turn finish writing before deleting, so nothing is written after.
+        await turn
+      }
       await store.deleteChat(id)
       const chats = await store.listChats()
       set({ chats })
@@ -542,8 +566,8 @@ export function createChatController(deps: ControllerDeps): ChatController {
 
     async send(text, files) {
       const clean = text.trim()
-      if (state.streaming || (!clean && files.length === 0)) return
-      await withTurn(async () => {
+      if (state.streaming || (!clean && files.length === 0)) return false
+      return withTurn(async () => {
         const chatId = state.activeChatId ?? (await controller.newChat())
         const chat = chatById(chatId)!
         const vision = modelInfo(chat.settings.model)?.supportsVision ?? true
@@ -551,7 +575,7 @@ export function createChatController(deps: ControllerDeps): ChatController {
           const check = classifyFile(f, vision)
           if (!check.ok) {
             set({ notice: check.error })
-            return
+            return false
           }
         }
         let stored: StoredAttachment[]
@@ -568,7 +592,7 @@ export function createChatController(deps: ControllerDeps): ChatController {
           )
         } catch {
           set({ notice: 'Couldn’t read that file.' })
-          return
+          return false
         }
         const event: UserMessageEvent = {
           id: newId(),
@@ -583,14 +607,15 @@ export function createChatController(deps: ControllerDeps): ChatController {
           }),
         }
         const projection = await prepare(chat, { event, attachments: stored })
-        if (!projection) return
+        if (!projection) return false
         for (const a of stored) await store.putAttachment(chatId, a)
         event.ts = stamp() // after any compaction event written by prepare()
         await store.putEvent(event)
         set({ attachments: new Map([...state.attachments, ...stored.map((a) => [a.id, a] as const)]) })
         replaceEvent(event)
         await streamTurn(chatId, projection)
-      })
+        return true
+      }, false)
     },
 
     stop() {
@@ -608,7 +633,7 @@ export function createChatController(deps: ControllerDeps): ChatController {
         }
         const projection = await prepare(chatById(chatId)!)
         if (projection) await streamTurn(chatId, projection)
-      })
+      }, undefined)
     },
 
     async editLastUserMessage(text) {
@@ -624,7 +649,7 @@ export function createChatController(deps: ControllerDeps): ChatController {
         set({ events: [...state.events.slice(0, idx), edited] })
         const projection = await prepare(chatById(chatId)!)
         if (projection) await streamTurn(chatId, projection)
-      })
+      }, undefined)
     },
 
     async compactNow() {
