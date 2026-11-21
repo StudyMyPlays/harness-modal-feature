@@ -164,6 +164,7 @@ describe('POST /api/chat', () => {
     expect(bodies[0].venice_parameters).toEqual({
       enable_web_search: 'auto',
       enable_web_citations: true,
+      include_search_results_in_stream: true,
       include_venice_system_prompt: true,
     })
   })

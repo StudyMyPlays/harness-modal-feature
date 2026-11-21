@@ -60,6 +60,9 @@ export function buildVeniceBody(req: LlmRequest): Record<string, unknown> {
     venice_parameters: {
       enable_web_search: req.webSearch,
       enable_web_citations: req.webSearch !== 'off',
+      // Without this Venice streams the ^n^ carets but never the sources they
+      // point to; with it, `web_search_citations` arrives in a late chunk.
+      include_search_results_in_stream: req.webSearch !== 'off',
       include_venice_system_prompt: req.includeVeniceSystemPrompt,
     },
   }

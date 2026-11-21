@@ -99,10 +99,11 @@ describe('createVeniceAdapter', () => {
     expect(events.findIndex((e) => e.type === 'tool-calls')).toBeLessThan(events.length - 1)
   })
 
-  it('emits citations from the first chunk', async () => {
+  it('emits citations from the chunk that carries them (Venice sends it after the text)', async () => {
     const { adapter } = adapterReturning(sseResponse(searchFixture))
     const events = await collect(adapter.stream(req({ webSearch: 'on' })))
-    expect(events[1]).toEqual({
+    expect(events.map((e) => e.type)).toEqual(['meta', 'text-delta', 'citations', 'usage', 'finish'])
+    expect(events[2]).toEqual({
       type: 'citations',
       citations: [
         { title: 'Cats', url: 'https://example.com/cats', content: 'About cats' },
@@ -163,6 +164,8 @@ describe('buildVeniceBody', () => {
     expect(body.venice_parameters).toEqual({
       enable_web_search: 'auto',
       enable_web_citations: true,
+      // Without it Venice streams the ^n^ carets but never the sources they point to.
+      include_search_results_in_stream: true,
       include_venice_system_prompt: false,
     })
     expect(body).not.toHaveProperty('tools')
@@ -177,6 +180,7 @@ describe('buildVeniceBody', () => {
     expect(body.venice_parameters).toMatchObject({
       enable_web_search: 'off',
       enable_web_citations: false,
+      include_search_results_in_stream: false,
       include_venice_system_prompt: true,
     })
     expect(body).toMatchObject({ reasoning_effort: 'low', temperature: 0.2, max_tokens: 30 })
