@@ -1,0 +1,181 @@
+{
+ "object": "list",
+ "type": "text",
+ "data": [
+  {
+   "context_length": 1000000,
+   "created": 1776988800,
+   "id": "deepseek-v4-pro",
+   "model_spec": {
+    "pricing": {
+     "input": {
+      "usd": 1.65,
+      "diem": 1.65
+     },
+     "cache_input": {
+      "usd": 0.33,
+      "diem": 0.33
+     },
+     "output": {
+      "usd": 3.301,
+      "diem": 3.301
+     }
+    },
+    "availableContextTokens": 1000000,
+    "maxCompletionTokens": 262144,
+    "capabilities": {
+     "optimizedForCode": true,
+     "quantization": "not-available",
+     "supportsAudioInput": false,
+     "supportsFunctionCalling": true,
+     "supportsLogProbs": false,
+     "supportsMultipleImages": false,
+     "supportsReasoning": true,
+     "supportsReasoningEffort": true,
+     "reasoningEffortOptions": [
+      "none",
+      "low",
+      "medium",
+      "high"
+     ],
+     "defaultReasoningEffort": "low",
+     "supportsResponseSchema": true,
+     "supportsTeeAttestation": false,
+     "supportsE2EE": false,
+     "supportsVideoInput": false,
+     "supportsVision": false,
+     "supportsWebSearch": true,
+     "supportsXSearch": false
+    },
+    "description": "DeepSeek V4 Pro is a 1.6T-parameter Mixture-of-Experts model with 49B active parameters and a 1M-token context window. Built for advanced reasoning, coding, and long-horizon agentic workflows with a hybrid attention system for efficient long-context processing.",
+    "name": "DeepSeek V4 Pro",
+    "modelSource": "https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro",
+    "offline": false,
+    "privacy": "private",
+    "traits": []
+   },
+   "object": "model",
+   "owned_by": "venice.ai",
+   "type": "text"
+  },
+  {
+   "context_length": 1000000,
+   "created": 1793059200,
+   "id": "deepseek-v4-1-flash-1017-uncensored",
+   "model_spec": {
+    "pricing": {
+     "input": {
+      "usd": 0.33,
+      "diem": 0.33
+     },
+     "cache_input": {
+      "usd": 0.00825,
+      "diem": 0.00825
+     },
+     "output": {
+      "usd": 1.32,
+      "diem": 1.32
+     }
+    },
+    "availableContextTokens": 1000000,
+    "maxCompletionTokens": 131072,
+    "capabilities": {
+     "optimizedForCode": true,
+     "quantization": "fp8",
+     "supportsAudioInput": false,
+     "supportsFunctionCalling": true,
+     "supportsLogProbs": false,
+     "supportsMultipleImages": true,
+     "maxImages": 10,
+     "supportsReasoning": true,
+     "supportsReasoningEffort": true,
+     "reasoningEffortOptions": [
+      "none",
+      "low",
+      "high",
+      "max"
+     ],
+     "defaultReasoningEffort": "high",
+     "supportsResponseSchema": true,
+     "supportsTeeAttestation": false,
+     "supportsE2EE": false,
+     "supportsVideoInput": false,
+     "supportsVision": true,
+     "supportsWebSearch": true,
+     "supportsXSearch": false
+    },
+    "description": "DeepSeek V4.1 Flash 1017 Uncensored is an abliterated, uncensored variant of DeepSeek V4.1 Flash 1017, a multimodal Mixture-of-Experts model with 552B backbone parameters (8B active on input, 16B on output) and a 1M-token context window. It natively processes images and text, with strong reasoning, coding, and agentic performance and no content-filtering guardrails.",
+    "name": "DeepSeek V4.1 Flash 1017 Uncensored",
+    "modelSource": "https://huggingface.co/dealignai/DeepSeek-V4.1-Flash-1017-UNCENSORED-FP8",
+    "offline": false,
+    "privacy": "private",
+    "traits": [
+     "app_default",
+     "default",
+     "function_calling_default"
+    ],
+    "uncensored": true
+   },
+   "object": "model",
+   "owned_by": "venice.ai",
+   "type": "text"
+  },
+  {
+   "context_length": 1048576,
+   "created": 1794528000,
+   "id": "glm-5-3-flash-uncensored",
+   "model_spec": {
+    "pricing": {
+     "input": {
+      "usd": 0.165,
+      "diem": 0.165
+     },
+     "cache_input": {
+      "usd": 0.033,
+      "diem": 0.033
+     },
+     "output": {
+      "usd": 0.55,
+      "diem": 0.55
+     }
+    },
+    "availableContextTokens": 1048576,
+    "maxCompletionTokens": 131072,
+    "capabilities": {
+     "optimizedForCode": true,
+     "quantization": "fp8",
+     "supportsAudioInput": false,
+     "supportsFunctionCalling": true,
+     "supportsLogProbs": false,
+     "supportsMultipleImages": true,
+     "maxImages": 10,
+     "supportsReasoning": true,
+     "supportsReasoningEffort": true,
+     "reasoningEffortOptions": [
+      "low",
+      "high",
+      "max"
+     ],
+     "defaultReasoningEffort": "high",
+     "supportsResponseSchema": true,
+     "supportsTeeAttestation": false,
+     "supportsE2EE": false,
+     "supportsVideoInput": false,
+     "supportsVision": true,
+     "supportsWebSearch": true,
+     "supportsXSearch": false
+    },
+    "description": "GLM 5.3 Flash Uncensored is an abliterated, uncensored variant of GLM-5.3 Flash, a reasoning model designed for coding, sustained agentic work, and production workloads, with a 1M-token context window. It natively processes images and text, with strong reasoning, coding, and agentic performance and no content-filtering guardrails.",
+    "name": "GLM 5.3 Flash Uncensored",
+    "modelSource": "https://huggingface.co/dealignai/GLM-5.3-Flash-UNCENSORED-FP8",
+    "offline": false,
+    "privacy": "private",
+    "traits": [],
+    "uncensored": true
+   },
+   "object": "model",
+   "owned_by": "venice.ai",
+   "type": "text"
+  }
+ ]
+}
