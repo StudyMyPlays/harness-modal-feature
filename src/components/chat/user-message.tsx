@@ -1,9 +1,70 @@
-import { FileText, ImageIcon } from 'lucide-react'
+'use client'
+
+import { FileText, ImageIcon, Pencil } from 'lucide-react'
+import { useState } from 'react'
+import { Button } from '@/components/ui/button'
 import type { UserMessageEvent } from '@/lib/harness/session/format'
 
-export function UserMessage({ event, evictedIds }: { event: UserMessageEvent; evictedIds: string[] }) {
+export function UserMessage({
+  event,
+  evictedIds,
+  onEdit,
+}: {
+  event: UserMessageEvent
+  evictedIds: string[]
+  /** Present only on the last user message, when it can be edited and re-sent. */
+  onEdit?: (text: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(event.text)
+
+  if (editing && onEdit) {
+    return (
+      <div className="flex justify-end">
+        <div className="surface-card w-full max-w-[85%] p-3 sm:max-w-[75%]">
+          <textarea
+            autoFocus
+            aria-label="Edit message"
+            value={draft}
+            rows={3}
+            onChange={(e) => setDraft(e.target.value)}
+            className="text-text-1 w-full resize-y bg-transparent text-[15px] leading-7 outline-none"
+          />
+          <div className="mt-2 flex justify-end gap-2">
+            <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={!draft.trim()}
+              onClick={() => {
+                setEditing(false)
+                onEdit(draft.trim())
+              }}
+            >
+              Send
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex justify-end">
+    <div className="group/user flex items-start justify-end gap-1">
+      {onEdit && (
+        <button
+          type="button"
+          aria-label="Edit message"
+          onClick={() => {
+            setDraft(event.text)
+            setEditing(true)
+          }}
+          className="text-text-3 hover:text-text-1 mt-2 rounded p-1 opacity-0 transition group-hover/user:opacity-100 focus-visible:opacity-100 [@media(pointer:coarse)]:opacity-100"
+        >
+          <Pencil className="size-3.5" />
+        </button>
+      )}
       <div className="surface-inner text-text-1 max-w-[85%] px-4 py-2.5 text-[15px] leading-7 sm:max-w-[75%]">
         {event.attachments.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-1.5">
@@ -19,7 +80,7 @@ export function UserMessage({ event, evictedIds }: { event: UserMessageEvent; ev
             ))}
           </div>
         )}
-        {event.text && <p className="whitespace-pre-wrap">{event.text}</p>}
+        {event.text && <p className="whitespace-pre-wrap break-words">{event.text}</p>}
       </div>
     </div>
   )

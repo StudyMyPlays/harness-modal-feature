@@ -11,14 +11,19 @@ export function MessageList({
   evictedIds,
   streaming,
   onRetry,
+  onEditLast,
 }: {
   events: SessionEvent[]
   evictedIds: string[]
   streaming: boolean
   onRetry: () => void
+  onEditLast: (text: string) => void
 }) {
   const scroller = useRef<HTMLDivElement>(null)
   const pinned = useRef(true)
+
+  const lastUserId = events.findLast((e) => e.type === 'user-message')?.id
+  const lastAssistantId = events.findLast((e) => e.type === 'assistant-message')?.id
 
   useEffect(() => {
     const el = scroller.current
@@ -36,8 +41,26 @@ export function MessageList({
     >
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6">
         {events.map((e) => {
-          if (e.type === 'user-message') return <UserMessage key={e.id} event={e} evictedIds={evictedIds} />
-          if (e.type === 'assistant-message') return <AssistantMessage key={e.id} event={e} onRetry={onRetry} />
+          if (e.type === 'user-message') {
+            return (
+              <UserMessage
+                key={e.id}
+                event={e}
+                evictedIds={evictedIds}
+                onEdit={!streaming && e.id === lastUserId ? onEditLast : undefined}
+              />
+            )
+          }
+          if (e.type === 'assistant-message') {
+            return (
+              <AssistantMessage
+                key={e.id}
+                event={e}
+                onRetry={onRetry}
+                onRegenerate={!streaming && e.id === lastAssistantId ? onRetry : undefined}
+              />
+            )
+          }
           return (
             <div key={e.id} className="text-text-3 type-label flex items-center gap-3" role="separator">
               <span className="h-px flex-1 bg-white/10" />

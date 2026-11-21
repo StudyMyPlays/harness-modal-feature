@@ -49,7 +49,16 @@ function ToolCallRow({ call }: { call: ToolCall }) {
   )
 }
 
-export function AssistantMessage({ event, onRetry }: { event: AssistantMessageEvent; onRetry: () => void }) {
+export function AssistantMessage({
+  event,
+  onRetry,
+  onRegenerate,
+}: {
+  event: AssistantMessageEvent
+  onRetry: () => void
+  /** Present only on the last reply, when it can be regenerated. */
+  onRegenerate?: () => void
+}) {
   const [copied, setCopied] = useState(false)
   const streaming = event.status === 'streaming'
   const citations = event.steps.flatMap((s) => s.citations)
@@ -110,6 +119,16 @@ export function AssistantMessage({ event, onRetry }: { event: AssistantMessageEv
               className="text-text-3 hover:text-text-1 rounded p-1 transition"
             >
               {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+            </button>
+          )}
+          {onRegenerate && event.status !== 'error' && (
+            <button
+              type="button"
+              aria-label="Regenerate reply"
+              onClick={onRegenerate}
+              className="text-text-3 hover:text-text-1 rounded p-1 transition"
+            >
+              <RotateCcw className="size-3.5" />
             </button>
           )}
           <UsageBadge usage={event.usage} costUsd={event.costUsd} />
